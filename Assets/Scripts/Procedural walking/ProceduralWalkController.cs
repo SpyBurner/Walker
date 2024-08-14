@@ -1,3 +1,4 @@
+using Cinemachine.Utility;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -24,7 +25,8 @@ public class ProceduralWalkController : MonoBehaviour
     [Header("Step profile")]
     
     [Tooltip("In second(s)")]
-    public float stepTime = 1; 
+    public float stepTime = 1;
+    public float idleTime = 1;
     public float stepEndHeightOffset;
     public float stepMaxHeight;
 
@@ -38,10 +40,8 @@ public class ProceduralWalkController : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField]
-    //Last move time
     private float[] _timingArray;
-    
-    //Allow movement this frame
+
     [SerializeField]
     private bool[] _moveCheckArray;
 
@@ -56,12 +56,6 @@ public class ProceduralWalkController : MonoBehaviour
         _timingArray = new float[legData.Length];
         _moveCheckArray = new bool[legData.Length];
         _isMoving = new bool[legData.Length];
-
-        for (int i = 0; i < legData.Length; ++i)
-        {
-            _timingArray[i] = Time.unscaledTime + legData[i].timing * stepTime;
-            _isMoving[i] = false;
-        }
     }
 
     void FixedUpdate()
@@ -141,7 +135,7 @@ public class ProceduralWalkController : MonoBehaviour
             Vector3 hitPosition = surfaceHit[0].point;
 
             //Debug
-            Debug.DrawLine(target.position, hitPosition, UnityEngine.Color.red);
+            Debug.DrawLine(target.position.ProjectOntoPlane(Vector3.up), hitPosition, UnityEngine.Color.red);
             //
 
             Vector3 projectedVec = target.position - hitPosition;
@@ -156,7 +150,8 @@ public class ProceduralWalkController : MonoBehaviour
     {
         for (int i = 0; i < legData.Length; i++)
         {
-            _moveCheckArray[i] &= _timingArray[i] + stepTime * 2 <= Time.unscaledTime;
+            _timingArray[i] += Time.fixedDeltaTime;
+            _moveCheckArray[i] &= _timingArray[i] >= idleTime + legData[i].delay;
         }
     }
 
@@ -166,10 +161,8 @@ public class ProceduralWalkController : MonoBehaviour
         {
             _moveCheckArray[i] = true;
 
-            if (_timingArray[i] + stepTime * 2 <= Time.unscaledTime)
-            {
-                _timingArray[i] = Time.unscaledTime + legData[i].timing * stepTime;
-            }
+            if (_timingArray[i] >= idleTime + legData[i].delay)
+                _timingArray[i] = 0;
         }
     }
 }
@@ -179,11 +172,13 @@ public class LegData
 {
     public GameObject IKTarget;
     public GameObject IKDest;
-    public float timing;
+    [Tooltip("sin function offset, multiplied by PI")]
+    [Range(0f, 1f)]
+    public float delay;
 
     LegData(){
         IKTarget = null;
         IKDest = null;
-        timing = 0;
+        delay = 0;
     }
 }
